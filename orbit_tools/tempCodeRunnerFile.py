@@ -1,1 +1,0 @@
-controls = iplt.plot(time=r[0])

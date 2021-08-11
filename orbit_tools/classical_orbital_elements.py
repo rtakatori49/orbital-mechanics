@@ -3,13 +3,11 @@
 # 10/16/2020
 
 # Modules
-import sys
-sys.path.append("orbit_tools")
 import numpy as np
-import coord_trans
+from . import coordinate_transformation as c_t
 
 # State Vector to Classical Orbital Elements
-def rv2coe(mu, r, v, deg):
+def state_to_coe(mu, r, v, deg=True):
     # Inertial position and velocity
     r = np.array(r)
     v = np.array(v)
@@ -60,13 +58,13 @@ def rv2coe(mu, r, v, deg):
     return coe
 
 # Classical Orbital Elements to State Vector
-def coe2rv(mu, coe, deg):
+def coe_to_state(mu, coe, deg=True):
     if deg:
-        coe[3:] = np.deg2rad(coe[3:])
-    [a, ecc, h, inc, raan, w, theta] = coe
+        coe[2:] = np.deg2rad(coe[2:])
+    [ecc, h, inc, raan, w, theta] = coe
     # State vectors in perifocal
     r_peri = ((h**2)/mu)*(1/(1+ecc*np.cos(theta)))*np.array([np.cos(theta), np.sin(theta), 0])
     v_peri = (mu/h)*np.array([-np.sin(theta), ecc+np.cos(theta), 0])
     # Convert
-    [r,v] = coord_trans.peri2eci(r_peri,v_peri,w,raan,inc)
+    r, v = c_t.perifocal_to_eci(r_peri,v_peri,w,raan,inc)
     return r,v
