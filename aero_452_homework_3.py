@@ -56,7 +56,7 @@ def problem_1():
     # VoP
     y0_vop = coe_[1:3] + list(np.deg2rad(coe_[3:7]))
     tic = time.time()
-    sol = solve_ivp(eom.VoP, t_span, y0_vop, method="RK45", events=eom.alt_checker_vop, args=(mue, perts,), rtol=1e-8, atol=1e-8)
+    sol = solve_ivp(eom.vop, t_span, y0_vop, method="RK45", events=eom.alt_checker_vop, args=(mue, perts,), rtol=1e-8, atol=1e-8)
     toc = time.time()
     print(f"(VoP) : Elapsed Time {str(toc-tic)} [s]")
     plotter.coe_plot(sol.y[0:6], sol.t/(24*60*60), "coe", mue, re, "Problem 1 VoP", deg=False, diff=False)
