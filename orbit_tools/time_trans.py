@@ -5,6 +5,7 @@
 # Modules
 import datetime
 import numpy as np
+import math
 from . import planet_data as p_d
 
 # Julian Date
@@ -26,17 +27,10 @@ def jd(input_datetime):
 
 # Local Sidereal Time
 def lst(input_datetime, lon):
-    # Make angle between 0 and 360
-    def deg_mod(angle):
-        if angle < 0:
-            angle %= -360
-        else:
-            angle %= 360
-        return angle
     # Extract date information
-    y = input_datetime.year # year
-    m = input_datetime.month # month
-    d = input_datetime.day # day
+    y = input_datetime.year
+    m = input_datetime.month
+    d = input_datetime.day
     hr = input_datetime.hour # hour
     mn = input_datetime.minute # minute
     s = input_datetime.second # second
@@ -50,8 +44,10 @@ def lst(input_datetime, lon):
     # Greenwich sidereal time at 0hr
     theta_gst0 = 100.4606184 + 36000.77004*t_ut1 + 0.000387933*(t_ut1)**2 \
         - 2.583e-8*(t_ut1)**3
-    theta_gst0 = deg_mod(theta_gst0) # make GST0 between 0 and 360
+    theta_gst0 = math.fmod(theta_gst0, 360) # make GST0 between 0 and 360
     theta_gst = theta_gst0 + w_earth*(ut1[0]*60*60+ut1[1]*60+ut1[2])
     theta_lst = theta_gst + lon # local sidereal time
-    theta_lst = deg_mod(theta_lst) # make LST between 0 and 360
+    theta_lst = math.fmod(theta_lst, 360) # make LST between 0 and 360
+    if theta_lst < 0:
+        theta_lst += 360
     return theta_gst, theta_lst

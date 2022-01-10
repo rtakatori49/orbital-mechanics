@@ -3,12 +3,14 @@
 # 2021-06-27
 
 # Module
-from datetime import time
-import sys
+import copy
 import io
+import math
 import numpy as np
 import pandas as pd
 from scipy.integrate import solve_ivp
+import sys
+
 from . import coordinate_transformation as c_t
 from . import equation_of_motion as eom
 from . import planet_data as p_d
@@ -374,14 +376,18 @@ def find_nominal(lat, long, alt, df_raw, fun, mu):
             args=(mu,), rtol=1e-8, atol=1e-8)
         r = np.array([val[-1] for val in sol.y[0:3]])
         v = np.array([val[-1] for val in sol.y[3:6]])
-        print(r, v)
         return r, v
     df_grouped = pd.DataFrame()
-    for x in range(3):
-        df_grouped[f"r{x+1}"] = df_obs["r"][x::3].values
-        df_grouped[f"jd{x+1}"] = df_obs["juliandate"][x::3].values
-    df_grouped["time_diff"] = df_obs["time_diff"][1::3].values
-    print(df_grouped["r1"])
+    obs_to_use = math.floor(len(df_obs["r"])/3)
+    temp_r = df_obs["r"][0:obs_to_use*3]
+    temp_jd = df_obs["juliandate"][0:obs_to_use*3]
+    temp_time_diff = df_obs["time_diff"][0:obs_to_use*3+1]
+    for x in range(obs_to_use):
+        df_grouped[f"r{x+1}"] = temp_r[x::3].values
+        df_grouped[f"jd{x+1}"] = temp_jd[x::3].values
+    df_grouped["time_diff"] = temp_time_diff[1::3].values
+    if len(df_grouped["time_diff"]) > obs_to_use:
+        df_grouped["time_diff"] = df_grouped["time_diff"].drop(-1)
     df_grouped["r"], df_grouped["v"] = df_grouped.apply(lambda row:
         send_raw_observation_to_start(row["r1"], row["r2"], row["r3"],
         row["jd1"], row["jd2"], row["jd3"], row["time_diff"], mu), axis=1).str
@@ -392,9 +398,8 @@ def find_nominal(lat, long, alt, df_raw, fun, mu):
 # Non-linear Weighted Least Squares
 def nlwls(lat, long, alt, df_raw,
     range_err, az_err, el_err, fun, mu):
-    r_nominal, v_nominal, df_obs = \
-        find_nominal(lat, long, alt, df_raw, fun, mu)
-    print(df_obs["r"])
+    r_nominal, v_nominal, df_obs = find_nominal(
+        lat, long, alt, df_raw, fun, mu)
     # While loop setup
     diff = 1000
     tol = 1e-3
@@ -414,7 +419,6 @@ def nlwls(lat, long, alt, df_raw,
     n_type_obs = len(df_true_obs.iloc[0,:])
     df_for_loop = pd.concat([df_raw["datetime"], df_obs["time_diff"],
             df_true_obs], axis=1)
-    print(x_nominal)
     while diff > tol:
         htwh = np.zeros((len(x_nominal), len(x_nominal)))
         htwy = np.zeros(len(x_nominal))
@@ -433,7 +437,7 @@ def nlwls(lat, long, alt, df_raw,
             y = np.array(list(row[2:])) - x_nom_obs
             h = np.zeros((len(x_nominal), len(x_nom_obs)))
             for x in range(len(x_nominal)):
-                x_mod = x_nominal
+                x_mod = copy.deepcopy(x_nominal)
                 x_mod[x] = x_nominal[x]*(1.001)
                 if row["time_diff"] == 0:
                     r_mod_obs = x_mod[0:3]
@@ -449,14 +453,13 @@ def nlwls(lat, long, alt, df_raw,
             htwy +=  np.dot(h, np.dot(w, y))
         p = np.linalg.pinv(htwh)
         dx_hat = np.dot(p, htwy)
-        rms = np.sqrt(np.dot(y, np.dot(w, y)/(n_type_obs*(n_obs-1))))
+        rms = np.sqrt(np.dot(y, np.dot(w, y))/(n_type_obs*(n_obs)))
         if k > 1:
             diff = np.abs((prev_rms-rms)/prev_rms)
-            print(diff)
         prev_rms = rms
         x_nominal += dx_hat
         k += 1
-        if k == 25:
+        if k == 1000:
             raise Exception
     eig_w, eig_v = np.linalg.eig(p)
     confidence = [np.sqrt(p[x, x])*1000 for x in range(3)]

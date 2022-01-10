@@ -4,6 +4,7 @@
 
 # Modules
 import numpy as np
+import math
 from . import direction_cosine_matrix as dcm
 from . import planet_data as p_d
 from . import time_trans as t_t
@@ -59,7 +60,7 @@ def lla_to_eci(lat, long, alt, date_time, geodetic=True):
     theta_lst = np.deg2rad(theta_lst)
     if geodetic:
         num = (1-f)**2
-        den = np.sqrt(1-(2*f-(f**2)*np.sin(lat)**2))
+        den = np.sqrt(1-(2*f-(f**2))*np.sin(lat)**2)
         r = (re/den) + alt
         r_z = ((re*num)/den) + alt
         z = r_z*np.sin(lat)
@@ -70,27 +71,22 @@ def lla_to_eci(lat, long, alt, date_time, geodetic=True):
     y = r*np.cos(lat)*np.sin(theta_lst)
     return np.array([x, y, z])
 
-# Make angle between 0 and 360
-def deg_mod(angle):
-    if angle < 0:
-        angle %= -360
-    else:
-        angle %= 360
-    return angle
-
 # Right Asecention and Declination to Azimuth and Elevation
 def radec_to_azel(ra, dec, lat, long, date_time):
     dec = np.deg2rad(dec)
     lat = np.deg2rad(lat)
-    long = np.deg2rad(long)
     _, theta_lst = t_t.lst(date_time, long)
-    lha = np.deg2rad(deg_mod(theta_lst-ra))
+    lha = np.deg2rad(math.fmod(theta_lst-ra, 360))
     elevation = np.arcsin(np.sin(lat)*np.sin(dec)
         +np.cos(lat)*np.cos(dec)*np.cos(lha))
     azimuth = np.arctan2(-np.sin(lha)*np.cos(dec)/np.cos(elevation),
         (np.sin(dec)-np.sin(elevation)*np.sin(lat))/(np.cos(elevation)
         *np.cos(lat)))
-    return np.rad2deg(azimuth), np.rad2deg(elevation)
+    elevation = math.fmod(np.rad2deg(elevation), 360)
+    azimuth = math.fmod(np.rad2deg(azimuth), 360)
+    if azimuth < 0:
+        azimuth += 360
+    return azimuth, elevation
 
 def azel_to_radec(az, el, lat, long, date_time):
     az = np.deg2rad(az)
@@ -100,7 +96,7 @@ def azel_to_radec(az, el, lat, long, date_time):
     dec = np.arcsin(np.sin(el)*np.sin(lat)+np.cos(el)*np.cos(lat)*np.cos(az))
     lha = np.rad2deg(np.arctan2(-np.sin(az)*np.cos(el)/np.cos(dec),
     (np.sin(el)-np.sin(dec)*np.sin(lat))/(np.cos(dec)*np.cos(lat))))
-    ra = deg_mod(theta_lst-lha)
+    ra = math.fmod(theta_lst-lha, 360)
     return ra, np.rad2deg(dec)
 
 def state_to_razel(r, date_time, lat, long, alt):
